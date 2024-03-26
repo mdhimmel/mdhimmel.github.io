@@ -1,0 +1,1314 @@
+---
+title: "An Analysis of 2019 Cyclistic Bike Ridership"
+author: "Marc Himmel"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    theme: united
+---
+\
+\
+
+## Introduction
+
+\
+Cyclistic is a bike-share company in Chicago launched in 2016 with more than 5,800 bicycles and 600 docking stations. 
+
+The company offers flexible pricing plans: single-ride passes, full-day passes, and annual memberships. Riders who purchase a single-ride pass or a full-day pass are referred to as “casual riders”, whereas customers who purchase an annual membership are referred to as “members”. 
+
+Cyclistic’s finance strategists have determined that annual members are much more profitable than casual riders. A key part of their business strategy, therefore, relies on converting casual riders into annual members. To target their marketing campaign specifically at their casual rider customer base, the Cyclistic marketing analysts need to better understand how annual members and casual riders differ. 
+\
+\
+\
+\
+\
+
+## Key Analysis Question
+
+\
+**How do annual members and casual riders use Cyclistic bikes differently?**
+\
+\
+\
+\
+\
+
+## Data
+
+\
+The data used for this analysis comes from the Cyclistic Historical Trip Data. This is a public data set. All personally identifiable information has been removed. Without personally identifiable data present, it is impossible to link multiple rides to the same account. Therefore, every ride is treated as a singular, independent event. This report focuses solely on data recorded from 2019.
+
+The data used in this report, as well as historical trip data from other years, can be found here: [Cyclistic Historical Trip Data](https://divvy-tripdata.s3.amazonaws.com/index.html)
+\
+\
+\
+
+#### Setting up R environment
+
+\
+\
+```{r message=FALSE, warning=FALSE, fig.align='center'}
+# Installing packages and loading libraries
+#install.packages("tidyverse")
+#install.packages("gplots")
+#install.packages("scales")
+#install.packages("cowplot")
+#install.packages("formattable")
+#install.packages("rmarkdown")
+#install.packages("ggtext")
+library(tidyverse)
+library(gplots)
+library(scales)
+library(cowplot)
+library(formattable)
+library(rmarkdown)
+library(ggtext)
+```
+\
+\
+\
+
+#### Importing the Data
+
+\
+This data set was pulled from the Google Data Analytics course Case Study 1.\
+The data can be found here: [Cyclistic Historical Trip Data](https://divvy-tripdata.s3.amazonaws.com/index.html)
+\
+\
+```{r}
+#Import files
+q1df <- read.csv("C:/Users/march/OneDrive/Desktop/Courses/Google Certificate/8- Google Data Analytics Capstone- Complete a Case Study/Case Study 1/RAW data/Divvy_Trips_2019_Q1 RAW.csv")
+q2df <- read.csv("C:/Users/march/OneDrive/Desktop/Courses/Google Certificate/8- Google Data Analytics Capstone- Complete a Case Study/Case Study 1/RAW data/Divvy_Trips_2019_Q2 RAW.csv")
+q3df <- read.csv("C:/Users/march/OneDrive/Desktop/Courses/Google Certificate/8- Google Data Analytics Capstone- Complete a Case Study/Case Study 1/RAW data/Divvy_Trips_2019_Q3 RAW.csv")
+q4df <- read.csv("C:/Users/march/OneDrive/Desktop/Courses/Google Certificate/8- Google Data Analytics Capstone- Complete a Case Study/Case Study 1/RAW data/Divvy_Trips_2019_Q4 RAW.csv")
+
+```
+\
+\
+Once imported, I take a quick glance at the four quarterly data frames to get familiar with their contents and see their structures.
+\
+\
+```{r}
+glimpse(q1df)
+glimpse(q2df)
+glimpse(q3df)
+glimpse(q4df)
+```
+\
+\
+\
+
+#### Preparing the Data 
+\
+\
+Before the four data frames can be merged into one, their contents need to be standardized and prepared. This includes removing columns, replacing columns, renaming columns, reordering columns, and creating new columns that will be important for the upcoming analysis.
+\
+\
+```{r}
+# Remove bike id columns
+q1df <- subset(q1df, select = -c(bikeid))
+q2df <- subset(q2df, select = -c(X01...Rental.Details.Bike.ID))
+q3df <- subset(q3df, select = -c(bikeid))
+q4df <- subset(q4df, select = -c(bikeid))
+
+
+#### FIX q1df "duration_secs" column...remove commas, convert to type numeric,...
+####...replace old duration column with newly created one, and add new "duration_mins" column
+
+q1_dur_secs <- gsub(",", "", q1df$tripduration)
+q1_dur_secs_numeric <- as.numeric(q1_dur_secs)
+q1_dur_mins <- ceiling(q1_dur_secs_numeric / 60)
+q1df <- subset(q1df, select = -c(tripduration))
+q1df <- cbind(q1df, q1_dur_secs_numeric)
+q1df <- cbind(q1df, q1_dur_mins)
+
+
+#...Repeat for q2df
+q2_dur_secs <- gsub(",", "", q2df$X01...Rental.Details.Duration.In.Seconds.Uncapped)
+q2_dur_secs_numeric <- as.numeric(q2_dur_secs)
+q2_dur_mins <- ceiling(q2_dur_secs_numeric / 60)
+q2df <- subset(q2df, select = -c(X01...Rental.Details.Duration.In.Seconds.Uncapped))
+q2df <- cbind(q2df, q2_dur_secs_numeric)
+q2df <- cbind(q2df, q2_dur_mins)
+
+
+
+#...Repeat for q3df
+q3_dur_secs <- gsub(",", "", q3df$tripduration)
+q3_dur_secs_numeric <- as.numeric(q3_dur_secs)
+q3_dur_mins <- ceiling(q3_dur_secs_numeric / 60)
+q3df <- subset(q3df, select = -c(tripduration))
+q3df <- cbind(q3df, q3_dur_secs_numeric)
+q3df <- cbind(q3df, q3_dur_mins)
+
+
+
+#...Repeat for q4df
+q4_dur_secs <- gsub(",", "", q4df$tripduration)
+q4_dur_secs_numeric <- as.numeric(q4_dur_secs)
+q4_dur_mins <- ceiling(q4_dur_secs_numeric / 60)
+q4df <- subset(q4df, select = -c(tripduration))
+q4df <- cbind(q4df, q4_dur_secs_numeric)
+q4df <- cbind(q4df, q4_dur_mins)
+
+
+# Create age column in each dataframe 
+q1df$age <- 2019 - q1df$birthyear
+q2df$age <- 2019 - q2df$X05...Member.Details.Member.Birthday.Year
+q3df$age <- 2019 - q3df$birthyear
+q4df$age <- 2019 - q4df$birthyear
+
+
+# Remove "birthyear" column from each dataframe
+q1df <- subset(q1df, select = -c(birthyear))
+q2df <- subset(q2df, select = -c(X05...Member.Details.Member.Birthday.Year))
+q3df <- subset(q3df, select = -c(birthyear))
+q4df <- subset(q4df, select = -c(birthyear))
+
+
+# Add "day of week" column to each dataframe. Sunday=1, Monday=2....etc
+q1df$day_of_week <- wday(q1df$start_time)
+q2df$day_of_week <- wday(q2df$X01...Rental.Details.Local.Start.Time)
+q3df$day_of_week <- wday(q3df$start_time)
+q4df$day_of_week <- wday(q4df$start_time)
+
+
+#### Make column names in each dataframe uniform
+
+# Renaming q1df columns
+colnames(q1df)[10] = "duration_seconds"
+colnames(q1df)[11] = "duration_mins"
+
+# Renaming q2df columns
+colnames(q2df)[1] = "trip_id"
+colnames(q2df)[2] = "start_time"
+colnames(q2df)[3] = "end_time"
+colnames(q2df)[4] = "from_station_id"
+colnames(q2df)[5] = "from_station_name"
+colnames(q2df)[6] = "to_station_id"
+colnames(q2df)[7] = "to_station_name"
+colnames(q2df)[8] = "usertype"
+colnames(q2df)[9] = "gender"
+colnames(q2df)[10] = "duration_seconds"
+colnames(q2df)[11] = "duration_mins"
+
+
+# Renaming q3df columns
+colnames(q3df)[10] = "duration_seconds"
+colnames(q3df)[11] = "duration_mins"
+
+
+# Renaming q4df columns
+colnames(q4df)[10] = "duration_seconds"
+colnames(q4df)[11] = "duration_mins"
+```
+\
+\
+\
+
+#### Merging the Data
+
+\
+```{r}
+fulldf <- rbind(q1df, q2df, q3df, q4df)
+```
+\
+\
+All of the data now exists in a single data frame. A few more columns need to be created and/or fixed before the data can be cleaned.
+\
+\
+```{r}
+# Add new column that specifies name of day of week
+day_of_week_name <- fulldf$day_of_week
+fulldf <- cbind(fulldf, day_of_week_name)
+
+fulldf$day_of_week_name <- replace(fulldf$day_of_week_name, fulldf$day_of_week_name == 1, 'Sunday')
+fulldf$day_of_week_name <- replace(fulldf$day_of_week_name, fulldf$day_of_week_name == 2, 'Monday')
+fulldf$day_of_week_name <- replace(fulldf$day_of_week_name, fulldf$day_of_week_name == 3, 'Tuesday')
+fulldf$day_of_week_name <- replace(fulldf$day_of_week_name, fulldf$day_of_week_name == 4, 'Wednesday')
+fulldf$day_of_week_name <- replace(fulldf$day_of_week_name, fulldf$day_of_week_name == 5, 'Thursday')
+fulldf$day_of_week_name <- replace(fulldf$day_of_week_name, fulldf$day_of_week_name == 6, 'Friday')
+fulldf$day_of_week_name <- replace(fulldf$day_of_week_name, fulldf$day_of_week_name == 7, 'Saturday')
+
+
+
+# Fix "start_time" and "end_time" columns ###
+
+# Split up start_time column into two columns: "start_date" and "start_time"
+colnames(fulldf)[2] = "FULL_start_time"   #changing current column name to avoid confusion
+fulldf <- fulldf %>% 
+  separate(FULL_start_time, c('start_date', 'start_time'), sep = " ")
+
+#...Repeat process for end_time column
+colnames(fulldf)[4] = "FULL_end_time"   #changing current column name to avoid confusion
+fulldf <- fulldf %>% 
+  separate(FULL_end_time, c('end_date', 'end_time'), sep = " ")
+
+
+# Convert start_date and end_date columns into uniform formats, then into proper "date" class
+fulldf$start_date <- ymd(parse_date_time(fulldf$start_date, c("%m/%d/%Y", "%y-%m-%d")))
+fulldf$end_date <- ymd(parse_date_time(fulldf$end_date, c("%m/%d/%Y", "%y-%m-%d")))
+
+# Convert 'start_time' column into uniform format, remove first 11 characters (made-up date stamp), then convert to 'hms'
+start_time_as_date <- parse_date_time(fulldf$start_time, c("%H:%M", "%H:%M:%S"))
+start_time_as_date_tidy <- gsub("^.{0,11}", "", start_time_as_date)
+fulldf$start_time <- hms(start_time_as_date_tidy)
+
+#...Repeat for 'end_time' column...
+end_time_as_date <- parse_date_time(fulldf$end_time, c("%H:%M", "%H:%M:%S"))
+end_time_as_date_tidy <- gsub("^.{0,11}", "", end_time_as_date)
+fulldf$end_time <- hms(end_time_as_date_tidy)
+
+
+
+
+# Add new column for name of month the ride starts in
+fulldf$start_date_months <- months(fulldf$start_date)
+
+
+# Add new column that specifies the NUMBER of the Month (taken from 'start_date_months' column)
+Number_of_Month <- fulldf$start_date_months
+fulldf <- cbind(fulldf, Number_of_Month)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'January', 1)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'February', 2)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'March', 3)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'April', 4)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'May', 5)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'June', 6)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'July', 7)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'August', 8)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'September', 9)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'October', 10)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'November', 11)
+fulldf$Number_of_Month <- replace(fulldf$Number_of_Month, fulldf$Number_of_Month == 'December', 12)
+
+
+
+# Convert "Number_of_month" from type char to numeric, then rename
+fulldf$Number_of_Month <- as.numeric(fulldf$Number_of_Month)
+colnames(fulldf)[18] = "number_of_month"
+
+
+# Change name of usertypes from Subscriber/Customer  to  Annual Member/Casual Rider
+fulldf$usertype <-ifelse(fulldf$usertype == "Subscriber", "Annual Member", "Casual Rider")
+```
+\
+\
+\
+
+#### Cleaning the Data
+
+\
+First, each column is checked for "NA" values.
+\
+\
+```{r collapse=TRUE}
+# Check for NA
+sum(is.na(fulldf$trip_id))
+sum(is.na(fulldf$start_date))
+sum(is.na(fulldf$start_time))
+sum(is.na(fulldf$end_date))
+sum(is.na(fulldf$end_time))
+sum(is.na(fulldf$from_station_id))
+sum(is.na(fulldf$from_station_name))
+sum(is.na(fulldf$to_station_id))
+sum(is.na(fulldf$to_station_name))
+sum(is.na(fulldf$usertype))
+sum(is.na(fulldf$gender))
+sum(is.na(fulldf$duration_seconds))
+sum(is.na(fulldf$duration_mins))
+sum(is.na(fulldf$age))#................538,751 NA's in this column
+sum(is.na(fulldf$day_of_week))
+sum(is.na(fulldf$day_of_week_name))
+sum(is.na(fulldf$start_date_months))
+sum(is.na(fulldf$number_of_month))
+
+```
+\
+\
+538,751 rows of data show NA for the customer's age. The decision is made to drop these rows. This represents a significant portion of the data set (14%), however the decision is justified due to customer age playing a large factor in the analysis. Additionally, there is still a significant amount of data left over.
+\
+\
+```{r}
+# Drop rows with NA values
+fulldf <- fulldf %>% 
+  drop_na()
+```
+\
+\
+Next, columns are checked for missing values. 
+\
+\
+```{r collapse=TRUE}
+# Check for blanks
+sum(fulldf$trip_id == "")
+sum(fulldf$start_date == "")
+sum(fulldf$start_time == "")
+sum(fulldf$end_date == "")
+sum(fulldf$end_time == "")
+sum(fulldf$from_station_id == "")
+sum(fulldf$from_station_name == "")
+sum(fulldf$to_station_id == "")
+sum(fulldf$to_station_name == "")
+sum(fulldf$usertype == "")
+sum(fulldf$gender == "")#.............20,457 empty cells in this column
+sum(fulldf$duration_seconds == "")
+sum(fulldf$duration_mins == "")
+sum(fulldf$age == "")
+sum(fulldf$day_of_week == "")
+sum(fulldf$day_of_week_name == "")
+sum(fulldf$start_date_months == "")
+sum(fulldf$number_of_month == "")
+```
+\
+\
+The only column with missing values is the "gender" column. 20,457 rows of data are missing info about the customers' sex. This represents a tiny portion of the data set (only 0.6%), therefore, these rows are dropped without issue.
+\
+\
+```{r}
+# Drop rows with missing "gender" values
+fulldf <- filter(fulldf, gender != "")
+```
+\
+\
+Finally, data entries with extreme/outlier values are dropped. For ages, this means customers younger than 18 or older than 100. For trip duration, this means trips that lasted fewer than 90 seconds (most likely to be damaged or malfunctioning bikes which were returned immediately), or trips lasting longer than 6 hours.
+\
+\
+```{r}
+#Drop rows with extreme/outlier ages and trip duration
+fulldf <- filter(fulldf, age >= 18 & age <= 100)
+fulldf <- filter(fulldf, duration_seconds > 90  & duration_seconds < 21600)
+
+```
+\
+\
+\
+\
+\
+
+## Analysis
+
+\
+\
+
+#### Overview of Ridership
+
+\
+After cleaning the data, there remain a grand total of **3,244,116 bike trips** to analyze. The following graph shows the breakdown of these trips by customer type.
+\
+\
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+basic_bar_df <- fulldf %>% 
+  group_by(usertype) %>% 
+  summarise(total_rides = n())
+
+ggplot(data = basic_bar_df, aes(x = usertype, y = total_rides, fill = usertype)) +
+  geom_col(width = 0.6) +
+  scale_color_manual(name = NULL,
+                     values = c("Annual Member" = "#FF8C00", "Casual Rider" = "#00BFFF" ),
+                     labels = c(
+                       "Annual Member" = "<i style='color:#FF8C00'>Annual Member</i>",
+                       "Casual Rider" = "<i style='color:#00BFFF'>Casual Rider</i>"),
+                     aesthetics = c("color", "fill")
+  ) +
+  labs(title = "**Number of Rides by Type**  
+    <span style='font-size:11pt'> All Rides by
+    <span style='color:#FF8C00;'>Annual Members</span> and 
+    <span style='color:#00BFFF;'>Casual Riders</span> in 2019
+    </span>",
+       x = "Type of Rider", y = "Total Rides"
+  ) +
+  geom_text(aes(label = total_rides),
+            size = 3.3,
+            vjust = 2.5,
+            color = "white"
+  ) +
+  theme_classic() +
+  theme(plot.title = element_markdown(lineheight = 1.1),
+        legend.text = element_markdown(size = 10),
+        legend.position = "none") +
+  scale_y_continuous(labels = label_comma())
+```
+\
+\
+Immediately, a clearer picture emerges of the task ahead. Nearly 90% of Cyclistic customers are *already* members. This leaves just 10% of the customer base that can potentially be converted from casual riders into annual members. These are the riders the Cyclistic marketing team will attempt to reach through this marketing campaign.
+\
+\
+As stated in the Key Analysis Question, the goal is to uncover the differences between casual riders and annual members. In order to do that, it would be helpful to have a better understanding of what the Cyclistic customer base looks like. Grouping all customers by their reported sex instantly reveals that the customer base is heavily skewed toward male riders.
+\
+\
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+pie_chart_sex <- fulldf %>% 
+  group_by(gender) %>% 
+  summarise(sex_total = n()) 
+
+pie_chart_sex_andtotal <- pie_chart_sex %>%
+  arrange(desc(gender)) %>% 
+  mutate(total_rides = sum(pie_chart_sex$sex_total)) %>% 
+  mutate(prct_oftotal = round((sex_total * 100) / total_rides, digits = 1)) %>% 
+  mutate(ypos = cumsum(prct_oftotal) - 0.5*prct_oftotal) %>% 
+  mutate(prct_oftotal_punct = c("73.7%", "26.3%"))
+
+
+
+
+ggplot(pie_chart_sex_andtotal, aes(x="", y = prct_oftotal, fill = gender)) +
+  geom_bar(stat = "identity", width = 1, color = "white", linewidth = 2.2) +
+  coord_polar("y", start = 1.653) +
+  scale_color_manual(name = NULL,
+                     values = c( Male = "#96CDCD", Female = "#CD919E"),
+                     labels = c(
+                       Male = "<i style='color:#96CDCD'>Male</i>",
+                       Female = "<i style='color:#CD919E'>Female</i>")
+  ) +
+  scale_color_manual(values = c("pink3", "paleturquoise3"), aesthetics = c("color", "fill")) +
+  labs(title = "**All 2019 Cyclistic Customers by Sex**  
+    <span style='font-size:11pt'> Percentage of
+    <span style='color:#96CDCD;'>**Males**</span> and 
+    <span style='color:#CD919E;'>**Females**</span> 
+    </span>"
+  ) +
+  geom_text(aes(y = ypos, label = prct_oftotal_punct), color = "white", size=6) +
+  theme_void() + 
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none")
+```
+\
+\
+Additionally, grouping the sexes by their membership rates shows that males are more likely to already be annual members.
+\
+\
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', fig.width=10}
+#Male users
+pie_chart_male <- filter(fulldf, gender == "Male") %>% 
+  group_by(usertype) %>% 
+  summarise(male_user_totals = n()) 
+
+pie_chart_maletotals <- pie_chart_male %>%
+  arrange(desc(usertype)) %>% 
+  mutate(total_males = sum(pie_chart_male$male_user_totals)) %>% 
+  mutate(prct_oftotal = round((male_user_totals * 100) / total_males, digits = 1)) %>% 
+  mutate(ypos = cumsum(prct_oftotal) - 0.5*prct_oftotal) %>% 
+  mutate(prct_oftotal_punct = c("8.8%", "91.2%"))
+
+male_pie_chart <- ggplot(pie_chart_maletotals, aes(x="", y = prct_oftotal, fill = usertype)) +
+  geom_bar(stat = "identity", width = 1, color = "#96CDCD", linewidth = 2.2) +
+  coord_polar("y", start = 0) +
+  scale_color_manual(name = NULL,
+                     values = c("Annual Member" = "#FF8C00", "Casual Rider" = "#00BFFF" ),
+                     labels = c(
+                       "Annual Member" = "<i style='color:#FF8C00'>Annual Member</i>",
+                       "Casual Rider" = "<i style='color:#00BFFF'>Casual Rider</i>"),
+                     aesthetics = c("color", "fill")
+  ) +
+  labs(title = "<span style='color:#96CDCD;'>**Male Customers**</span> **by Type**  
+    <span style='font-size:11pt'> Percentage of
+    <span style='color:#FF8C00;'>**Annual Members**</span> and 
+    <span style='color:#00BFFF;'>**Casual Riders**</span> 
+    </span>"
+  ) +
+  geom_text(aes(y = ypos, label = prct_oftotal_punct), color = "white", size = 5) +
+  theme_void() + 
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none")
+
+
+#Female users
+
+pie_chart_female <- filter(fulldf, gender == "Female") %>% 
+  group_by(usertype) %>% 
+  summarise(female_user_totals = n()) 
+
+pie_chart_femaletotals <- pie_chart_female %>%
+  arrange(desc(usertype)) %>% 
+  mutate(total_females = sum(pie_chart_female$female_user_totals)) %>% 
+  mutate(prct_oftotal = round((female_user_totals * 100) / total_females, digits = 1)) %>% 
+  mutate(ypos = cumsum(prct_oftotal) - 0.5*prct_oftotal) %>% 
+  mutate(prct_oftotal_punct = c("15.2%", "84.8%"))
+
+
+
+female_pie_chart <- ggplot(pie_chart_femaletotals, aes(x="", y = prct_oftotal, fill = usertype)) +
+  geom_bar(stat = "identity", width = 1, color = "#CD919E", linewidth = 2.2) +
+  coord_polar("y", start = 0) +
+  scale_color_manual(name = NULL,
+                     values = c("Annual Member" = "#FF8C00", "Casual Rider" = "#00BFFF" ),
+                     labels = c(
+                       "Annual Member" = "<i style='color:#FF8C00'>Annual Member</i>",
+                       "Casual Rider" = "<i style='color:#00BFFF'>Casual Rider</i>"),
+                     aesthetics = c("color", "fill")
+  ) +
+  labs(title = "<span style='color:#CD919E;'>**Female Customers**</span> **by Type**  
+    <span style='font-size:11pt'> Percentage of
+    <span style='color:#FF8C00;'>**Annual Members**</span> and 
+    <span style='color:#00BFFF;'>**Casual Riders**</span> 
+    </span>"
+  ) +
+  geom_text(aes(y = ypos, label = prct_oftotal_punct), color = "white", size=5) +
+  theme_void() + 
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none")
+
+
+#Male and female pie charts side-by-side
+plot_grid(male_pie_chart, female_pie_chart)
+
+```
+\
+
+##### Key Insights:
+
+-	90% of customers are annual members\
+-	Males make up nearly three-quarters of Cyclistic’s customer base\
+-	Male customers are annual members at a higher rate (91.2%) than female customers (84.8%)\
+-	While there are more *total* male casual riders, there is a *greater proportion* of casual riders within the female demographic 
+\
+\
+\
+
+#### Demographic Breakdown by Age and Sex
+\
+\
+Alongside their sex, breaking down customers by their age can be helpful in providing a more detailed picture of the people who make up Cyclistic’s customer base. The following graph shows the membership rates of customers between 18 and 70 years old. Each horizontal bar represents the proportion of male and femlae customers of that age who are annual members. (Customers older than 70 represent just 0.2% of all rides and were excluded from this one graph for sake of clarity). Using the dotted lines as guides, we observe that most customer age groups have a membership rate close to or above 90%. This is especially true for male customers, and for older age groups among both sexes.
+\
+\
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+pyramiddf <- filter(fulldf, fulldf$age <= 70)  %>% 
+  group_by(gender, age) %>% 
+  summarise(count_population = n(), 
+            number_subbed = sum(usertype == 'Annual Member'),
+            percent_subbed = round((number_subbed * 100) / count_population, digits = 1)
+  )
+
+pyramiddf_neg <- pyramiddf %>%  
+  mutate(percent_subbed_negifmale = ifelse(gender == 'Male', percent_subbed*(-1), percent_subbed*1))
+
+pyramiddf_neg <- pyramiddf_neg %>% 
+  mutate(hjust_calibrated = ifelse(percent_subbed_negifmale > 0, yes = 1.2, no = -0.2))
+
+
+ggplot(data = pyramiddf_neg, aes(x = age, y= percent_subbed_negifmale, fill = gender)) +
+  geom_bar(stat = "identity", width = 0.75) +
+  scale_color_manual(name = NULL,
+                     values = c(Male = "#96CDCD", Female = "#CD919E"),
+                     labels = c(
+                     Male = "<i style='color:#96CDCD'>Male</i>",
+                     Female = "<i style='color:#CD919E'>Female</i>"),
+                     aesthetics = c("color", "fill")
+  ) +
+  coord_flip() +
+  labs(title = "**Membership Rate by Demographic**  
+    <span style='font-size:11pt'>Percentage of
+    <span style='color:#96CDCD;'>**Males**</span>  and 
+    <span style='color:#CD919E;'>**Females**</span>  by Age Who Are Annual Members 
+    </span>",
+       x = "Age ", y = "Membership  (%)"
+  ) +
+  scale_y_continuous(labels = abs, limits = c(-100 , 100), breaks = c(-100, -90, -50, 0, 50, 90, 100)) +
+  theme_classic() +
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none") +
+  geom_hline(yintercept = 100, linetype = 5) +
+  geom_hline(yintercept = -100, linetype = 5) +
+  geom_hline(yintercept = 90, linetype = 3) +
+  geom_hline(yintercept = -90, linetype = 3) 
+
+```
+\
+\
+The shorter bars at the bottom of the previous graph stand out. This bottleneck represents a steep decrease in annual membership rates among the youngest age groups. Focusing in on this part of the graph allows for a closer analysis of the demographics with the lowest membership rates. 
+\
+Notable observations include: 21-year-old females have the lowest membership rate (51.1%) of any age/sex combination, followed closely by females aged 19 and 20 (both 51.8%). More generally, we observe that the youngest age groups have the lowest membership rates, and that male and female customers aged 18-22 have significantly lower membership rates than their older counterparts.
+\
+\
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+zoomed_pyramid_df <- filter(fulldf, age <= 30) %>% 
+  group_by(gender, age) %>% 
+  summarise(count_population = n(), 
+            number_subbed = sum(usertype == 'Annual Member'),
+            percent_subbed = round((number_subbed * 100) / count_population, digits = 1)
+  )
+
+zoomed_pyramiddf_neg <- zoomed_pyramid_df %>%  
+  mutate(percent_subbed_negifmale = ifelse(gender == 'Male', percent_subbed*(-1), percent_subbed*1))
+
+zoomed_pyramiddf_neg <- zoomed_pyramiddf_neg %>% 
+  mutate(hjust_calibrated = ifelse(percent_subbed_negifmale > 0, yes = 1.7, no = -0.6))
+
+
+ggplot(data = zoomed_pyramiddf_neg, aes(x = age, y= percent_subbed_negifmale, fill = gender)) +
+  geom_bar(stat = "identity") +
+  scale_color_manual(name = NULL,
+                     values = c(Male = "#96CDCD", Female = "#CD919E"),
+                     labels = c(
+                     Male = "<i style='color:#96CDCD'>Male</i>",
+                     Female = "<i style='color:#CD919E'>Female</i>"),
+                     aesthetics = c("color", "fill")
+  ) +
+  coord_flip() +
+  labs(title = "**Membership Rate by Demographic**  ***(Ages 18 thru 30)***  
+    <span style='font-size:11pt'>Percentage of
+    <span style='color:#96CDCD;'>**Males**</span>  and 
+    <span style='color:#CD919E;'>**Females**</span>  by Age Who Are Annual Members 
+    </span>",
+       x = "Age", y = "Membership  (%)"
+  ) +
+  geom_text(aes(label = formattable::digits(sqrt(percent_subbed_negifmale^2), digits = 1)), 
+            hjust = zoomed_pyramiddf_neg$hjust_calibrated, 
+            vjust = 0.3, size = 4,
+            col = "white") +
+  theme_classic() +
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none") +
+  geom_hline(yintercept = 100, linetype = 5) +
+  geom_hline(yintercept = -100, linetype = 5) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 7)) + 
+  scale_y_continuous(labels = abs, limits = c(-100 , 100), breaks = c(-100, -50, 0, 50, 100)) 
+```
+\
+
+##### Key Insights:
+
+-	Younger customers have lower membership rates\
+-	Female customers are less likely to be annual members than male customers at virtually every age\
+-	The youngest female customers (aged 18-22) are least likely to be annual members of any age/sex demographic
+\
+\
+\
+
+#### When do Rides Occur?
+\
+\
+With a better idea of what the customer base looks like, we can now explore how this customer base behaves. Let’s begin by asking *when* customers choose to take rides, and then we will look more closely at the characteristics of the rides themselves.
+
+The following graph shows on which day of the week Cyclistic customers rode their bikes. We observe that more rides were taken during the week as opposed to on weekends. Tuesdays, Wednesdays, and Thursdays saw both the most total rides (approximately 525,000 on each day), as well as the highest proportions of membership (93.2%, 93.1%, and 92.2% respectively). Additionally, we observe that the size of the blue bands atop each bar are relatively equal. This suggests that the raw number of casual riders remained mostly constant for each day of the week, with a bump in casual ridership experienced on the weekends.
+\
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+
+usertype_count_df <- fulldf %>% 
+  group_by(day_of_week, day_of_week_name, usertype) %>% 
+  summarize(count_rides = n())
+
+count_by_day_df <- fulldf %>% 
+  group_by(day_of_week, day_of_week_name) %>% 
+  summarise(day_count = n())
+
+temp_merged1 <- merge(usertype_count_df, count_by_day_df)
+stacked_bar_DOW <- mutate(temp_merged1, prct_subbed = round((count_rides *100) / (day_count), digits = 1), .keep = "all")
+
+labels_vec_punctuated <- c("(80.0%)", "", "(91.8%)", "", "(93.2%)","" , "(93.1%)", "", "(92.2%)", "", "(90.6%)","" , "(78.4%)", "")
+stacked_dowtemp <- cbind(stacked_bar_DOW, labels_punctuated = labels_vec_punctuated)
+stacked_bar_DOW <-  stacked_dowtemp
+
+positions_of_DOWgraph <- c('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+
+
+visual_stacked_bar_DOW <- select(stacked_bar_DOW, Day = day_of_week_name, Usertype = usertype, Ride_Count = count_rides) %>% 
+  arrange(desc(Usertype)) 
+day_name_vec_abbr <- c("Sun", "Mon", "Tues", "Wed", "Thur", "Fri", "Sat")
+reshape(visual_stacked_bar_DOW, idvar = "Usertype", timevar = "Day", sep = "_", direction = "wide", varying = day_name_vec_abbr)
+
+
+
+
+ggplot(data = stacked_bar_DOW, aes(x = day_of_week_name, y = count_rides, fill = forcats::fct_rev(usertype))) +
+  geom_col(position = 'stack', width = 0.75) +
+  scale_color_manual(name = NULL,
+                     values = c("Annual Member" = "#FF8C00", "Casual Rider" = "#00BFFF"),
+                     labels = c(
+                     "Annual Member" = "<i style='color:#FF8C00'>Annual Member</i>",
+                     "Casual Rider" = "<i style='color:#00BFFF'>Casual Rider</i>"),
+                     aesthetics = c("color", "fill")
+  ) +
+  labs(title = "**Total Rides Taken by Day of Week**  
+    <span style='font-size:11pt'> 
+    <span style='color:#FF8C00;'>Annual Members</span> +
+    <span style='color:#00BFFF;'>Casual Riders</span> (% Membership)
+    </span>",
+       x = "Day of Week", y = "Total Rides" 
+  ) +
+  scale_x_discrete(limits = positions_of_DOWgraph) +
+  geom_text(aes(label = labels_punctuated), 
+            vjust = 6.8, 
+            size = 4.3, 
+            color = "white") +
+  theme_classic() +
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none",
+    axis.text.x = element_text(angle = 320, hjust = 0.2, vjust = .35),
+    axis.text.y = element_text(size = 8)) +
+  scale_y_continuous(limits = c(0,600000), breaks = waiver(), n.breaks = 7, labels = label_comma())
+
+```
+\
+\
+\
+Similarly, we can analyze ridership month-by-month to determine if there are seasonal trends. Unsurprisingly, we find that rider behavior changes drastically depending on what time of year it is. Most rides occur in the summer between June and September. In contrast, we see a sharp drop in ridership between November and February. Moreover, the sizes of the blue bands reveal that casual rides occur almost exclusively in the warmer half of the year (May – October).
+\
+\
+\
+```{r echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, fig.width=10}
+
+monthly_usertype_count <- fulldf %>% 
+  group_by(number_of_month, start_date_months, usertype) %>% 
+  summarise(count_total = n())
+
+count_by_month <- fulldf %>% 
+  group_by(number_of_month, start_date_months) %>% 
+  summarise(monthly_count = n())
+
+temp_merged2 <- merge(monthly_usertype_count, count_by_month)
+stacked_bar_MOY <- mutate(temp_merged2, prct_subbed = round((count_total *100) / (monthly_count), digits = 1), .keep = "all") %>% 
+  arrange(number_of_month)
+
+positions_of_MOYgraph <- c('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December')
+MOYlabels_vec_punctuated <- c("98.8%", "", "99.2%", "", "97.4%","" , "94.3%", "", "92.3%", "", "89.0%","" , "83.5%", "", "82.8%", "", "86.7%", "", "90.7%", "", "95.3%", "", "95.7%", "")            
+stacked_moytemp <- cbind(stacked_bar_MOY, labels_punctuated = MOYlabels_vec_punctuated)
+stacked_bar_MOY <-  stacked_moytemp
+
+visual_stacked_bar_MOY <- select(stacked_bar_MOY, Month = start_date_months, Usertype = usertype, Ride_Count = count_total) %>% 
+  arrange(desc(Usertype)) 
+month_name_vec_abbrev <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+reshape(visual_stacked_bar_MOY, idvar = "Usertype", timevar = "Month", direction = "wide", varying = month_name_vec_abbrev)
+
+
+
+
+ggplot(data = stacked_bar_MOY, aes(x = start_date_months, y = count_total, fill = forcats::fct_rev(usertype))) +
+  geom_col(position = 'stack', width = 0.75) +
+  scale_color_manual(name = NULL,
+                     values = c("Annual Member" = "#FF8C00", "Casual Rider" = "#00BFFF" ),
+                     labels = c(
+                     "Annual Member" = "<i style='color:#FF8C00'>Annual Member</i>",
+                     "Casual Rider" = "<i style='color:#00BFFF'>Casual Rider</i>"),
+                     aesthetics = c("color", "fill")
+  ) +
+  labs(title = "**Total Rides Taken by Month**  
+    <span style='font-size:11pt'> 
+    <span style='color:#FF8C00;'>Annual Members</span> + 
+    <span style='color:#00BFFF;'>Casual Riders</span> (% Membership)
+    </span>", 
+       x = "Month", y = "Total Rides") +
+  scale_x_discrete(limits = positions_of_MOYgraph) +
+  geom_text(aes(label = labels_punctuated), 
+            vjust = 4, 
+            size = 3.5, 
+            color = "white") +
+  theme_classic() +
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none",
+    axis.text.x = element_text(angle = 320, hjust = 0.2, vjust = 0.35),
+    axis.text.y = element_text(size = 8)
+  ) +
+  scale_y_continuous(limits = c(0,500000), breaks = waiver(), n.breaks = 6, labels = label_comma())
+
+```
+\
+
+##### Key Insights:
+
+-	Most Cyclistic rides are taken Monday thru Friday, and during the warmest months of the year\
+-	Most casual rides are taken on the weekends and in the summer\
+-	February saw both the fewest total rides (~ 93,000), and the lowest proportion of casual rides (0.8%)
+-	August saw both the most total rides (~ 481,000), and the highest proportion of casual rides (17.2%)
+\
+\
+\
+
+#### Bike Trip Starting Times
+\
+\
+We have explored which days of the week and times of year are most popular among the different types of riders. But what does ridership on a typical day look like? The plot below helps answer this question. Each dot represents the percentage of all rides in 2019 that began within that 15-minute time interval (the left-most dots represent rides that began between midnight and 12:15am, the next dots represent rides that began between 12:15 – 12:30am, etc.)
+
+The patterns that emerge are revealing. Annual riders’ trip start-times peak at approximately 8am, and then again at 5pm. This coincides with the start- and end-times of a standard American workday. Additionally, there is a bump between these two peaks that lasts from approximately 12 – 1pm. All of this suggests that a large number of annual members use Cyclistic bikes to commute to and from work, and a smaller, yet still significant, number of members take rides during their midday lunch breaks. This aligns with the earlier observation that annual members take a majority of their rides Monday – Friday. 
+
+Conversely, we observe that the start-times of casual riders remain relatively flat throughout the day. This means that trip start-times for casual riders are spaced out much more evenly throughout the day than for members. We do see a slow and gradual increase throughout the day in the number of casual rides starting at 8 am and peaking at 5 pm, however the peak at and around 5 pm is far less abrupt than the spike we see in annual members starting rides at that same time. All of this supports the conclusion that casual riders tend not to use Cyclistic bikes to commute to and from work, which matches the earlier observation that most casual rides take place over the weekend.
+\
+\
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+pull_start_times <- fulldf$start_time
+start_in_secs <- seconds(pull_start_times)
+
+grouping_vector_by_15_mins <- case_when(
+  0   <= start_in_secs & start_in_secs < 900  ~ "00:00",
+  900 <= start_in_secs & start_in_secs < 1800  ~ "00:15",
+  1800 <= start_in_secs & start_in_secs < 2700  ~ "00:30",
+  2700 <= start_in_secs & start_in_secs < 3600  ~ "00:45",
+  3600 <= start_in_secs & start_in_secs < 4500  ~ "01:00",
+  4500 <= start_in_secs & start_in_secs < 5400  ~ "01:15",
+  5400 <= start_in_secs & start_in_secs < 6300  ~ "01:30",
+  6300 <= start_in_secs & start_in_secs < 7200  ~ "01:45",
+  7200 <= start_in_secs & start_in_secs < 8100  ~ "02:00",
+  8100 <= start_in_secs & start_in_secs < 9000  ~ "02:15",
+  9000 <= start_in_secs & start_in_secs < 9900  ~ "02:30",
+  9900 <= start_in_secs & start_in_secs < 10800  ~ "02:45",
+  10800 <= start_in_secs & start_in_secs < 11700  ~ "03:00",
+  11700 <= start_in_secs & start_in_secs < 12600  ~ "03:15",
+  12600 <= start_in_secs & start_in_secs < 13500  ~ "03:30",
+  13500 <= start_in_secs & start_in_secs < 14400  ~ "03:45",
+  14400 <= start_in_secs & start_in_secs < 15300  ~ "04:00",
+  15300 <= start_in_secs & start_in_secs < 16200  ~ "04:15",
+  16200 <= start_in_secs & start_in_secs < 17100  ~ "04:30",
+  17100 <= start_in_secs & start_in_secs < 18000  ~ "04:45",
+  18000 <= start_in_secs & start_in_secs < 18900  ~ "05:00",
+  18900 <= start_in_secs & start_in_secs < 19800  ~ "05:15",
+  19800 <= start_in_secs & start_in_secs < 20700  ~ "05:30",
+  20700 <= start_in_secs & start_in_secs < 21600  ~ "05:45",
+  21600 <= start_in_secs & start_in_secs < 22500  ~ "06:00",
+  22500 <= start_in_secs & start_in_secs < 23400  ~ "06:15",
+  23400 <= start_in_secs & start_in_secs < 24300  ~ "06:30",
+  24300 <= start_in_secs & start_in_secs < 25200  ~ "06:45",
+  25200 <= start_in_secs & start_in_secs < 26100  ~ "07:00",
+  26100 <= start_in_secs & start_in_secs < 27000  ~ "07:15",
+  27000 <= start_in_secs & start_in_secs < 27900  ~ "07:30",
+  27900 <= start_in_secs & start_in_secs < 28800  ~ "07:45",
+  28800 <= start_in_secs & start_in_secs < 29700  ~ "08:00",
+  29700 <= start_in_secs & start_in_secs < 30600  ~ "08:15",
+  30600 <= start_in_secs & start_in_secs < 31500  ~ "08:30",
+  31500 <= start_in_secs & start_in_secs < 32400  ~ "08:45",
+  32400 <= start_in_secs & start_in_secs < 33300  ~ "09:00",
+  33300 <= start_in_secs & start_in_secs < 34200  ~ "09:15",
+  34200 <= start_in_secs & start_in_secs < 35100  ~ "09:30",
+  35100 <= start_in_secs & start_in_secs < 36000  ~ "09:45",
+  36000 <= start_in_secs & start_in_secs < 36900  ~ "10:00",
+  36900 <= start_in_secs & start_in_secs < 37800  ~ "10:15",
+  37800 <= start_in_secs & start_in_secs < 38700  ~ "10:30",
+  38700 <= start_in_secs & start_in_secs < 39600  ~ "10:45",
+  39600 <= start_in_secs & start_in_secs < 40500  ~ "11:00",
+  40500 <= start_in_secs & start_in_secs < 41400  ~ "11:15",
+  41400 <= start_in_secs & start_in_secs < 42300  ~ "11:30",
+  42300 <= start_in_secs & start_in_secs < 43200  ~ "11:45",
+  43200 <= start_in_secs & start_in_secs < 44100  ~ "12:00",
+  44100 <= start_in_secs & start_in_secs < 45000  ~ "12:15",
+  45000 <= start_in_secs & start_in_secs < 45900  ~ "12:30",
+  45900 <= start_in_secs & start_in_secs < 46800  ~ "12:45",
+  46800 <= start_in_secs & start_in_secs < 47700  ~ "13:00",
+  47700 <= start_in_secs & start_in_secs < 48600  ~ "13:15",
+  48600 <= start_in_secs & start_in_secs < 49500  ~ "13:30",
+  49500 <= start_in_secs & start_in_secs < 50400  ~ "13:45",
+  50400 <= start_in_secs & start_in_secs < 51300  ~ "14:00",
+  51300 <= start_in_secs & start_in_secs < 52200  ~ "14:15",
+  52200 <= start_in_secs & start_in_secs < 53100  ~ "14:30",
+  53100 <= start_in_secs & start_in_secs < 54000  ~ "14:45",
+  54000 <= start_in_secs & start_in_secs < 54900  ~ "15:00",
+  54900 <= start_in_secs & start_in_secs < 55800  ~ "15:15",
+  55800 <= start_in_secs & start_in_secs < 56700  ~ "15:30",
+  56700 <= start_in_secs & start_in_secs < 57600  ~ "15:45",
+  57600 <= start_in_secs & start_in_secs < 58500  ~ "16:00",
+  58500 <= start_in_secs & start_in_secs < 59400  ~ "16:15",
+  59400 <= start_in_secs & start_in_secs < 60300  ~ "16:30",
+  60300 <= start_in_secs & start_in_secs < 61200  ~ "16:45",
+  61200 <= start_in_secs & start_in_secs < 62100  ~ "17:00",
+  62100 <= start_in_secs & start_in_secs < 63000  ~ "17:15",
+  63000 <= start_in_secs & start_in_secs < 63900  ~ "17:30",
+  63900 <= start_in_secs & start_in_secs < 64800  ~ "17:45",
+  64800 <= start_in_secs & start_in_secs < 65700  ~ "18:00",
+  65700 <= start_in_secs & start_in_secs < 66600  ~ "18:15",
+  66600 <= start_in_secs & start_in_secs < 67500  ~ "18:30",
+  67500 <= start_in_secs & start_in_secs < 68400  ~ "18:45",
+  68400 <= start_in_secs & start_in_secs < 69300  ~ "19:00",
+  69300 <= start_in_secs & start_in_secs < 70200  ~ "19:15",
+  70200 <= start_in_secs & start_in_secs < 71100  ~ "19:30",
+  71100 <= start_in_secs & start_in_secs < 72000  ~ "19:45",
+  72000 <= start_in_secs & start_in_secs < 72900  ~ "20:00",
+  72900 <= start_in_secs & start_in_secs < 73800  ~ "20:15",
+  73800 <= start_in_secs & start_in_secs < 74700  ~ "20:30",
+  74700 <= start_in_secs & start_in_secs < 75600  ~ "20:45",
+  75600 <= start_in_secs & start_in_secs < 76500  ~ "21:00",
+  76500 <= start_in_secs & start_in_secs < 77400  ~ "21:15",
+  77400 <= start_in_secs & start_in_secs < 78300  ~ "21:30",
+  78300 <= start_in_secs & start_in_secs < 79200  ~ "21:45",
+  79200 <= start_in_secs & start_in_secs < 80100  ~ "22:00",
+  80100 <= start_in_secs & start_in_secs < 81000  ~ "22:15",
+  81000 <= start_in_secs & start_in_secs < 81900  ~ "22:30",
+  81900 <= start_in_secs & start_in_secs < 82800  ~ "22:45",
+  82800 <= start_in_secs & start_in_secs < 83700  ~ "23:00",
+  83700 <= start_in_secs & start_in_secs < 84600  ~ "23:15",
+  84600 <= start_in_secs & start_in_secs < 85500  ~ "23:30",
+  85500 <= start_in_secs & start_in_secs < 86400  ~ "23:45", 
+  .default = NULL)
+
+ghost_fulldf <- cbind(fulldf, grouping_vector_by_15_mins)
+ghost_fulldf <- ghost_fulldf %>% 
+  select(start_time, grouping_vector_by_15_mins, usertype)
+
+start_time_df <- ghost_fulldf %>% 
+  group_by(grouping_vector_by_15_mins, usertype) %>% 
+  summarise(n = n(), Total = 3244116, Percentage_vec = round(((n*100)/Total), digits = 3)) 
+
+x_labels_it1 <- start_time_df$grouping_vector_by_15_mins
+x_labels_it1 <- sort(unique(x_labels_it1))
+x_labels_it1[seq(2, length(x_labels_it1), 2)] <- ""
+
+x_labels_it2 <- x_labels_it1
+x_labels_it2[seq(3, length(x_labels_it2), 4)] <- ""
+
+x_labels_it3 <- x_labels_it2
+x_labels_it3[seq(5, length(x_labels_it3), 8)] <- ""
+
+x_labels_it4 <- x_labels_it3
+x_labels_it4[seq(9, length(x_labels_it4), 16)] <- ""
+
+
+
+
+ggplot(data = start_time_df, aes(grouping_vector_by_15_mins, Percentage_vec, color = usertype)) +
+  geom_point(size = 2.2) +
+  scale_color_manual(name = NULL,
+                     values = c("Annual Member" = "#FF8C00", "Casual Rider" = "#00BFFF" ),
+                     labels = c(
+                       "Annual Member" = "<i style='color:#FF8C00'>Annual Member</i>",
+                       "Casual Rider" = "<i style='color:#00BFFF'>Casual Rider</i>")
+  ) +
+  labs(title = "**Share of Rides Beginning at Specific Times of Day**  
+    <span style='font-size:11pt'> 
+    <span style='color:#FF8C00;'>Annual Members</span> vs. 
+    <span style='color:#00BFFF;'>Casual Riders</span>
+    </span>",
+       x = "Time of Day  (15 min Time Intervals)", y = "Total Share of Rides  (%)"
+  ) +
+  scale_x_discrete(labels = x_labels_it4) +
+  theme_classic() +
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none")
+
+```
+\
+
+##### Key Insights:
+
+-	Start-times for annual members are highly correlated with commute times and lunch breaks\
+-	Casual riders typically do not use Cyclistic bikes to commute to work\
+\
+\
+\
+
+#### Ride Duration
+\
+\
+The final sections of this analysis look at the bike trips themselves. The following graphs show how long the average trip lasts. We find that casual riders take longer rides than members do; on any given day, a casual ride will last approximately 2.5 times longer than a member ride. Additionally, there is higher variance in trip durations for casual riders than for annual members. Whereas casual rides can last anywhere from 31 to 38 minutes on average (a difference of 22%), member rides are much more consistent, lasting an average of 13 minutes each weekday Monday thru Friday, and just one minute longer on Saturdays and Sundays.
+\
+\
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+dbl_bar_avg_duration <- fulldf %>% 
+  group_by(day_of_week, day_of_week_name, usertype) %>% 
+  summarise(avg_duration = round(mean(duration_mins), digits = 0))
+
+dbl_bar_avg_duration$label_adjust <- c(1.9, -0.6, 1.9, -0.6, 1.9, -0.6, 1.9, -0.6, 1.9, -0.6, 1.9, -0.6, 1.9, -0.6)
+positions_of_dblbaravggraph <- c('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+
+
+
+ggplot(data = dbl_bar_avg_duration, aes(x = day_of_week_name, y = avg_duration , fill = usertype)) +
+  geom_col(position = 'dodge', width = 0.8) +
+  scale_color_manual(name = NULL,
+                     values = c("Annual Member" = "#FF8C00", "Casual Rider" = "#00BFFF" ),
+                     labels = c(
+                       "Annual Member" = "<i style='color:#FF8C00'>Annual Member</i>",
+                       "Casual Rider" = "<i style='color:#00BFFF'>Casual Rider</i>"),
+                     aesthetics = c("color", "fill")
+  ) +
+  labs(title = "**Average Duration of Rides by Day of Week**  
+    <span style='font-size:11pt'> 
+    <span style='color:#FF8C00;'>Annual Members</span> vs. 
+    <span style='color:#00BFFF;'>Casual Riders</span>
+    </span>",
+       x = 'Day', y = 'Avg Duration  (mins)'
+  ) +
+  scale_x_discrete(limits = positions_of_dblbaravggraph) +
+  geom_text(aes(label = formattable::digits(avg_duration, digits = 0)), 
+            vjust = 2,
+            hjust = dbl_bar_avg_duration$label_adjust,
+            size = 4,
+            color = "white") +
+  theme_classic() +
+  theme( 
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none",
+    axis.text.x = element_text(angle = 320, hjust = 0.2, vjust = 0.35),
+    axis.text.y = element_text(size = 8)
+  ) +
+  scale_y_continuous(limits = c(0 , 40), breaks = waiver(), n.breaks = 5)
+
+```
+\
+\
+Analyzing ride durations by month yields a similar result. Once again, we observe that in any given month, a casual rider’s trip will last approximately 2.5 times longer than rides by annual members in that same month. However, unlike how the weekly graph showed a *small* variance of ride duration day-to-day (among both types of customers), the monthly breakdown reveals a *larger* variance in ride duration month-to-month among both groups. In other words, the average duration of a trip is effected relatively more by what month it is rather than by what day of the week it is.
+
+Additionally, the longest average rides for casual riders occur in April, May, and July (37 mins in each), which is approximately 50% longer than the duration of the shortest average rides for casual riders (24 mins in February). Likewise, the longest average rides for annual members (15 mins in July), are *also* 50% longer than the duration of the shortest average rides for members (10 mins in January and February). In short, both types of riders take trips that are 50% longer in the warmest months than in the coldest ones.
+\
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', fig.width=10}
+dbl_bar_avg_duration_MONTH <- fulldf %>% 
+  group_by(number_of_month, start_date_months, usertype) %>% 
+  summarise(avg_duration = round(mean(duration_mins), digits = 0))
+
+dbl_bar_avg_duration_MONTH$label_adjust <- c(1.4, -0.35, 1.4, -0.35, 1.4, -0.35, 1.4, -0.35, 1.4, -0.35, 1.4, -0.35, 1.4, -0.35, 1.4, -0.35, 1.4, -0.35, 1.4, -0.35, 1.4, -0.35, 1.4, -0.35)
+positions_of_dblbaravgdurMONTHgraph <- c('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December')
+
+
+ggplot(data = dbl_bar_avg_duration_MONTH, aes(start_date_months, avg_duration , fill = usertype)) +
+  geom_col(position = 'dodge', width = .85) +
+  scale_color_manual(name = NULL,
+                     values = c("Annual Member" = "#FF8C00", "Casual Rider" = "#00BFFF" ),
+                     labels = c(
+                       "Annual Member" = "<i style='color:#FF8C00'>Annual Member</i>",
+                       "Casual Rider" = "<i style='color:#00BFFF'>Casual Rider</i>"),
+                     aesthetics = c("color", "fill")
+  ) +
+  labs(title = "**Average Duration of Rides by Month**  
+    <span style='font-size:11pt'> 
+    <span style='color:#FF8C00;'>Annual Members</span> vs. 
+    <span style='color:#00BFFF;'>Casual Riders</span>
+    </span>",
+       x = "Month", y = "Avg Duration  (mins)"
+  ) +
+  scale_x_discrete(limits = positions_of_dblbaravgdurMONTHgraph) +
+  geom_text(aes(label = formattable::digits(avg_duration, digits = 0)), 
+            vjust = 2,
+            hjust = dbl_bar_avg_duration_MONTH$label_adjust,
+            size = 3.3,
+            color = "white") +
+  theme_classic() +
+  theme( 
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none",
+    axis.text.x = element_text(angle = 320, hjust = 0.2, vjust = 0.35),
+    axis.text.y = element_text(size = 8)
+  ) +
+  scale_y_continuous(limits = c(0 , 40), breaks = waiver(), n.breaks = 5)
+
+```
+\
+
+##### Key Insights:
+
+-	Casual Customers take longer rides on average than do annual members\
+-	Both types of customers take slightly longer rides on the weekends than during the week\
+-	Both types of customers take longer rides during the warmest months, and shorter bike rides in the coldest months\
+-	On any given day, or within any given month, the average casual bike ride will last approximately 2.5 times longer than the average member’s ride
+\
+\
+\
+
+#### Which Stations do Rides Begin and End at?
+\
+\
+Finally, analyzing data about where each trip started and ended can provide valuable information about rider behavior in different parts of the city. In turn, this can help inform the Cyclistic marketing team’s decision about where *exactly* they might want to place advertisements.
+
+The following two graphs show which docking stations annual members are likely to begin and end their trips at. Once again, stations that saw fewer than 300 total trips in 2019 are excluded. 
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Top 10 starting stations
+from_station_hi <- fulldf %>% 
+  group_by(from_station_name) %>%
+  summarise(count_station = n(), number_subbed = sum(usertype == 'Annual Member'), percent_subbed = round((number_subbed * 100) / count_station, digits = 1)) %>% 
+  arrange(desc(percent_subbed)) 
+from_station_hi <- filter(from_station_hi, count_station >= 300)
+from_station_hi <- top_n(from_station_hi, 10)
+
+
+
+ggplot(data = from_station_hi, aes(x = reorder(from_station_name, percent_subbed), y = percent_subbed)
+                               ) +
+  geom_col(fill = "lightblue1", width = 0.6) +
+  labs(title = "Stations Where 
+    <span style='color:#FF8C00;'>**Annual  Members** </span>**Begin Trips**  
+    <span style='font-size:11pt'> 
+    <span style='color:#006400;'>**Top 10**</span> Stations by Membership Rate
+    </span>",
+       x = "Station Name", y = "Membership  (%)" 
+       ) +
+  geom_text(aes(label = digits(percent_subbed, digits = 1)), hjust=1.25, vjust = 0.35, size = 3.4, color = "darkgreen") +
+  coord_flip() +
+  scale_y_continuous(limits = c(0,100), breaks = seq(0, 100, by = 20)) +
+  theme_classic() +
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none"
+    ) +
+  geom_hline(yintercept = 100, linetype = 2)
+```
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Top 10 ending stations
+
+to_station_hi <- fulldf %>% 
+  group_by(to_station_name) %>%
+  summarise(count_station = n(), number_subbed = sum(usertype == 'Annual Member'), percent_subbed = (number_subbed * 100) / count_station) %>% 
+  arrange(desc(percent_subbed))
+to_station_hi <- filter(to_station_hi, count_station >= 300)
+to_station_hi <- top_n(to_station_hi, 10)
+
+
+ggplot(data = to_station_hi, aes(x = reorder(to_station_name, percent_subbed), y = percent_subbed)
+  ) +
+  geom_col(fill = "lightblue1", width = 0.6) +
+  labs(title = "Stations Where 
+    <span style='color:#FF8C00;'>**Annual Members**</span> **End Trips**  
+    <span style='font-size:11pt'> 
+    <span style='color:#006400;'>**Top 10**</span> Stations by Membership Rate
+    </span>",
+       x = "Station Name", y = "Membership  (%)" 
+       ) +
+  geom_text(aes(label = digits(percent_subbed, digits = 1)), hjust=1.25, vjust = 0.35, size = 3.4, color = "darkgreen") +
+  coord_flip() +
+  scale_y_continuous(limits = c(0,100), breaks = seq(0, 100, by = 20)) +
+  theme_classic() +
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none"
+    ) +
+  geom_hline(yintercept = 100, linetype = 2)
+
+```
+\
+\
+
+##### Key Insights:
+
+-	3 docking stations show up in the top 10 for both beginning trips and ending trips\
+-	These stations are “Financial Pl & Ida B Wells Dr (Temp)”, “Racine Ave (May St) & Fulton St”, and “Racine Ave & Congress Pkwy”
+\
+\
+\
+\
+Conversely, we can analyze which stations annual members are *least likely* to start or end at. The following two graphs show the 10 docking stations with the lowest proportion of annual members. Stations that saw fewer than 300 total trips in 2019 are excluded. 
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Bottom 10 start
+from_station_low <- fulldf %>% 
+  group_by(from_station_name) %>%
+  summarise(count_station = n(), number_subbed = sum(usertype == 'Annual Member'), percent_subbed = round((number_subbed * 100) / count_station, digits = 1)) %>% 
+  arrange(percent_subbed)
+from_station_low <- filter(from_station_low, count_station >= 300)
+from_station_low <- top_n(from_station_low, -10)
+
+
+ggplot(data = from_station_low, aes(x = reorder(from_station_name, -percent_subbed), y = percent_subbed)
+                                ) +
+  geom_col(fill = "lightblue1", width = 0.6) +
+  labs(title = "Stations Where 
+    <span style='color:#FF8C00;'>**Annual Members**  </span>***Don't*** **Begin Trips**  
+    <span style='font-size:11pt'> 
+    <span style='color:#FF0000;'>**Bottom 10**</span> Stations by Membership Rate
+    </span>",
+       x = "Station Name", y = "Membership  (%)" 
+  ) +
+  geom_text(aes(label = digits(percent_subbed, digits = 1)), hjust=1.25, vjust = 0.35, size = 3.4, color = "red") +
+  coord_flip() +
+  scale_y_continuous(limits = c(0,100), breaks = seq(0, 100, by = 20)) +
+  theme_classic() +
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none"
+    ) +
+  geom_hline(yintercept = 100, linetype = 2)
+
+```
+\
+\
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Bottom 10 end
+
+to_station_low <- fulldf %>% 
+  group_by(to_station_name) %>%
+  summarise(count_station = n(), number_subbed = sum(usertype == 'Annual Member'), percent_subbed = round((number_subbed * 100) / count_station, digits = 1)) %>% 
+  arrange(percent_subbed)
+to_station_low <- filter(to_station_low, count_station >= 300)
+to_station_low <- top_n(to_station_low, -10)
+
+
+ggplot(data = to_station_low, aes(x = reorder(to_station_name, -percent_subbed), y = percent_subbed)
+                              ) +
+  geom_col(fill = "lightblue1", width = 0.6) +
+  labs(title = "Stations Where 
+    <span style='color:#FF8C00;'>**Annual Members**  </span>***Don't*** **End Trips**  
+    <span style='font-size:11pt'> 
+    <span style='color:#FF0000;'>**Bottom 10**</span> Stations by Membership Rate
+    </span>",
+       x = "Station Name", y = "Membership  (%)" 
+       ) +
+  geom_text(aes(label = digits(percent_subbed, digits = 1)), hjust=1.25, vjust = 0.35, size = 3.4, color = "red") +
+  coord_flip() +
+  scale_y_continuous(limits = c(0,100), breaks = seq(0, 100, by = 20)) +
+  theme_classic() +
+  theme(
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 10),
+    legend.position = "none"
+    ) +
+  geom_hline(yintercept = 100, linetype = 2)
+
+```
+\
+\
+
+##### Key Insights:
+
+-	9 docking stations show up in the bottom 10 for both beginning trips and ending trips\
+-	These include every station shown in both graphs except for “Dusable Harbor” and “Michigan Ave & 8th St”
+\
+\
+\
+\
+\
+
+## Recommendations
+
+\
+Utilizing the key insights from the analysis above, we can offer the following recommendations to the marketing team to help them achieve the goal of converting casual riders into annual members:
+
+- Aim the marketing campaign at Cyclistic’s youngest customers. Current customers aged 18 – 24 (especially females) are the least likely demographic to already be members.\
+- Offer deals and/or discounts for customers to become annual members during the summer months. This is when both the largest number and the largest proportion of casual customers go on rides. For an even larger ROI, run advertisements over the summer months *on weekends.*\
+- Run advertisements in places where commuters will see them (e.g., in subway stations and on buses). This will present them with a fun, healthy, and popular alternative to their normal means of transportation.\
+- Place advertisements at and around the docking stations that currently boast the lowest membership rates.
+\
+\
+\
+\
+\
+\
